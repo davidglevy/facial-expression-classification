@@ -19,7 +19,11 @@
 
 # COMMAND ----------
 
-!pip install tensorflow==2.0
+# MAGIC %pip install tensorflow
+
+# COMMAND ----------
+
+# MAGIC %pip install opencv-python
 
 # COMMAND ----------
 
@@ -50,20 +54,47 @@ from tensorflow.keras.utils import plot_model
 from tensorflow.keras.callbacks import ReduceLROnPlateau, EarlyStopping, ModelCheckpoint, LearningRateScheduler
 from IPython.display import display
 from tensorflow.keras import backend as K
-from jupyterthemes import jtplot
-jtplot.style(theme='monokai', context='notebook', ticks=True, grid=False) 
+#from jupyterthemes import jtplot
+#jtplot.style(theme='monokai', context='notebook', ticks=True, grid=False) 
 # setting the style of the notebook to be monokai theme  
 # this line of code is important to ensure that we are able to see the x and y axes clearly
 # If you don't run this code line, you will notice that the xlabel and ylabel on any plot is black on black and it will be hard to see them. 
 
 
+# For pyspark.pandas, set max display to 20 rather than 1000
+pd.set_option("display.max_rows", 20)
+
 # COMMAND ----------
+
+import zipfile
+
+folderName = "facial-expression-classification"
+dbfsLoc = f"dbfs:/training/{folderName}"
+dbfsRawLoc = f"/dbfs/training/{folderName}"
+tmpLoc = f"file:/tmp/{folderName}"
+tmpRawLoc = f"/tmp/{folderName}"
 
 # read the csv files
-emotion_df = pd.read_csv('emotion.csv')
+dbutils.fs.mkdirs(dbfsLoc)
+
+# make a temporary directory
+dbutils.fs.mkdirs(tmpLoc)
+
+# Use os.getcwd to get abs path to emotion.zip
+dbutils.fs.cp(f"file:{os.getcwd()}/emotion.zip", tmpLoc)
+
+
+
+with zipfile.ZipFile(f"{tmpRawLoc}/emotion.zip", 'r') as zip_ref:
+    zip_ref.extractall(tmpRawLoc)
+
+dbutils.fs.cp(f"{tmpLoc}/emotion.csv", dbfsLoc)
+    
+emotion_df = pd.read_csv(f"{dbfsRawLoc}/emotion.csv")
 
 # COMMAND ----------
 
+#emotion_df.head(10)
 emotion_df
 
 # COMMAND ----------
@@ -81,20 +112,22 @@ emotion_df['pixels'][2] # String format
 # COMMAND ----------
 
 # function to convert pixel values in string format to array format
+
 def string2array(x):
   return np.array(x.split(' ')).reshape(48, 48, 1).astype('float32')
+  #return np.array(x.split(' ')).astype('float32')
 
 # COMMAND ----------
 
-emotion_df['pixels'] = emotion_df['pixels'].apply(lambda x: string2array(x))
+emotion_df['pixels_array'] = emotion_df['pixels'].apply(lambda x: string2array(x))
 
 # COMMAND ----------
 
-emotion_df['pixels'][2].shape
+emotion_df['pixels_array'][2].shape
 
 # COMMAND ----------
 
-emotion_df['pixels'][2]
+emotion_df['pixels_array'][2]
 
 # COMMAND ----------
 
@@ -113,7 +146,9 @@ label_to_text = {0:'anger', 1:'disgust', 2:'sad', 3:'happiness', 4: 'surprise'}
 
 # COMMAND ----------
 
+from matplotlib import pyplot as plt
 
+plt.imshow(emotion_df['pixels_array'][0].reshape(48, 48), interpolation='nearest', cmap='gray')
 
 # COMMAND ----------
 
@@ -126,7 +161,7 @@ emotions = [0,1,2,3,4]
 
 for i in emotions:
   data = emotion_df[emotion_df['emotion'] == i][:1]
-  img = data['pixels'].item()
+  img = data['pixels_array'].item()
   img = img.reshape(48,48)
   plt.figure()
   plt.title(label_to_text[i])
@@ -140,7 +175,17 @@ for i in emotions:
 
 # COMMAND ----------
 
+emotion = [0,1,2,3,4]
 
+results = []
+
+for i in emotions:
+  emotion_count = len(emotion_df[emotion_df['emotion'] == i])
+  results.append([ i, emotion_count, label_to_text[i] ])
+
+data_emotion_counts = pd.DataFrame(results, columns=['index', 'count', 'emotion'])
+
+data_emotion_counts.plot(x="emotion",y="count",kind="bar")
 
 # COMMAND ----------
 
@@ -149,7 +194,7 @@ for i in emotions:
 
 # COMMAND ----------
 
-emotion_df['pixels'][0]
+emotion_df['pixels_array'][0]
 
 # COMMAND ----------
 
@@ -157,7 +202,7 @@ emotion_df['emotion'][10]
 
 # COMMAND ----------
 
-X = emotion_df['pixels']
+X = emotion_df['pixels_array']
 X.shape
 
 # COMMAND ----------
@@ -165,11 +210,11 @@ X.shape
 # split the dataframe to features and labels
 # from keras.utils import to_categorical
 
-X = emotion_df['pixels']
+X = emotion_df['pixels_array']
 # y = to_categorical(emotion_df['emotion'])
 y = pd.get_dummies(emotion_df['emotion'])
 
-X = np.stack(X, axis = 0)
+X = np.stack(X.to_numpy(), axis = 0)
 X = X.reshape(24568, 48, 48, 1)
 
 print(X.shape, y.shape)
@@ -406,8 +451,11 @@ model_emotion.compile(optimizer = "Adam", loss = "categorical_crossentropy", met
 # using early stopping to exit training if validation loss is not decreasing even after certain epochs (patience)
 earlystopping = EarlyStopping(monitor = 'val_loss', mode = 'min', verbose = 1, patience = 20)
 
+# Use os.getcwd to get abs path to FacialExpression_weights.hdf5
+dbutils.fs.cp(f"file:{os.getcwd()}/FacialExpression_weights.hdf5", tmpLoc)
+
 # save the best model with lower validation loss
-checkpointer = ModelCheckpoint(filepath = "FacialExpression_weights.hdf5", verbose = 1, save_best_only=True)
+checkpointer = ModelCheckpoint(filepath = f"{tmpRawLoc}/FacialExpression_weights.hdf5", verbose = 1, save_best_only=True)
 
 # COMMAND ----------
 
@@ -420,7 +468,7 @@ history = model_emotion.fit(train_datagen.flow(X_train, y_train, batch_size=64),
 # saving the model architecture to json file for future use
 
 model_json = model_emotion.to_json()
-with open("Emotion-model.json","w") as json_file:
+with open(f"{dbfsRawLoc}/Emotion-model.json","w") as json_file:
   json_file.write(model_json)
 
 # COMMAND ----------
@@ -440,12 +488,12 @@ with open("Emotion-model.json","w") as json_file:
 
 # COMMAND ----------
 
-with open('Emotion-model.json', 'r') as json_file:
+with open(f"{dbfsRawLoc}/Emotion-model.json", 'r') as json_file:
     json_savedModel= json_file.read()
     
 # load the model architecture 
 model_emotion = tf.keras.models.model_from_json(json_savedModel)
-model_emotion.load_weights('FacialExpression_weights.hdf5')
+model_emotion.load_weights(f"{tmpRawLoc}/FacialExpression_weights.hdf5")
 model_emotion.compile(optimizer = "Adam", loss = "categorical_crossentropy", metrics = ["accuracy"])
 
 # COMMAND ----------
@@ -537,7 +585,7 @@ print(classification_report(y_true, predicted_classes))
 
 # COMMAND ----------
 
-plt.imshow(emotion_df['pixels'][0].squeeze(), cmap = 'gray')
+plt.imshow(emotion_df['pixels_array'][0].squeeze(), cmap = 'gray')
 
 # COMMAND ----------
 
@@ -596,4 +644,4 @@ rotation_range=15,
 
 # COMMAND ----------
 
-Take home!
+#Take home!
