@@ -5,12 +5,12 @@
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ![image.png](attachment:image.png)
+# MAGIC ![image1.png](https://dl.dropbox.com/s/2mqmckuiffrt3us/image1.png?dl=0)
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ![image.png](attachment:image.png)
+# MAGIC ![image.png](https://dl.dropbox.com/s/g9buxxrsdd3269a/image2.png?dl=0)
 
 # COMMAND ----------
 
@@ -251,22 +251,22 @@ rotation_range=15,
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ![image.png](attachment:image.png)
+# MAGIC ![image.png](https://dl.dropbox.com/s/oq54geyrv1nyof6/image8.png?dl=0)
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ![image.png](attachment:image.png)
+# MAGIC ![image.png](https://dl.dropbox.com/s/9jtg5ttfk1hr26b/image9.png?dl=0)
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ![image.png](attachment:image.png)
+# MAGIC ![image.png](https://dl.dropbox.com/s/cv1kk0ukyrqz7l8/image10.png?dl=0)
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ![image.png](attachment:image.png)
+# MAGIC ![image.png](https://dl.dropbox.com/s/mbf0zr2vxcvqs9q/image11.png?dl=0)
 
 # COMMAND ----------
 
